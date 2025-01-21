@@ -117,7 +117,8 @@ def main():
         lines = file.readlines()
     for line in lines:
         values = line.split()
-        update(market, values[0], values[1])
+        update(market, float(values[0]), float(values[1]))
+        update_portfolio(market, portfolio, context)
 
 
 def update(market: Market, HC: float, BF: float) -> None:
