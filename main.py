@@ -8,7 +8,7 @@ def main():
     portfolio = Portfolio()
     context = Context()
 
-    for i in range(7):
+    for i in range(365):
         update_portfolio(market, portfolio, context)
         market.updateMarket()
     print(portfolio.evaluate(market))
