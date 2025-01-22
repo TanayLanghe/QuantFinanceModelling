@@ -92,24 +92,24 @@ class Context:
 
     def weekByWeek(self, currWeek: float, company: str) -> float:
         close = 10
-        count = 0
         if company == "HC":
             weekGrowth = Context.weekGrowthHC
         elif company == "BF":
             weekGrowth = Context.weekGrowthBF
         else:
             return 0
-        for i in range(len(weekGrowth)):
+        closest = 0
+        i = 0
+        while i < len(weekGrowth):
             if abs(currWeek - weekGrowth[i]) < abs(currWeek - weekGrowth[close]):
-                count = count + 1
-                # print(abs(currWeek - weekGrowth[i]))
-                # print(abs(currWeek - weekGrowth[close]))
-                # print(count)
-                close = count
-        return weekGrowth[close + 1]
+                closest = i
+            i = i + 1
+        if closest == len(weekGrowth) - 1:
+            return weekGrowth[closest]
+        return weekGrowth[closest + 1]
 
     def weekCalc(self, first: float, seventh: float) -> float:
-        return ((seventh - first) / first)
+        return ((seventh - first)/first * 100)
 
     # def dayAssign(self, market: Market) -> None:
     #     if len(self.prevDay) <= 4:
@@ -154,16 +154,22 @@ def update_portfolio(curMarket: Market, curPortfolio: Portfolio, context: Contex
         # if volatile is not None and volatile[0] > 0.5 and volatile[1] > 0.5 and False == True:
         #     pass
         # else:
-        if context.totalDay >= 7:
+        if context.totalDay >= 6:
             context.hasVal = True
         if context.hasVal is True:
+            # print(context.first)
             weeklyHC = context.weekCalc(context.first[0], curMarket.stocks["HydroCorp"])
             weeklyBF = context.weekCalc(context.first[1], curMarket.stocks["BrightFuture"])
+            context.first.pop(0)
+            context.first.pop(0)
+            # print(weeklyHC)
+            # print(weeklyBF)
             HC = context.weekByWeek(weeklyHC, "HC")
             BF = context.weekByWeek(weeklyBF, "BF")
             context.hasVal = False
-            # print(HC)
-            # print(BF)
+            print(HC)
+            print(BF)
+            # print("end")
                 # if HC > BF:
                 #     curPortfolio.buy("HydroCorp", 0, curMarket)
                 # elif BF > HC:
