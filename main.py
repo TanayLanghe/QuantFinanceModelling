@@ -87,7 +87,9 @@ class Context:
         self.day = 0
         self.first = []
         self.totalDay = 0
-        self.noDay = [1]
+        self.noDay = []
+        self.prevDay = []
+        self.hasVal = False
 
     def weekByWeek(self, currWeek: float, company: str) -> float:
         close = 0
@@ -106,29 +108,60 @@ class Context:
     def weekCalc(self, first: float, seventh: float) -> float:
         return round((seventh - first) / first, 10)
 
+    def dayAssign(self, market: Market) -> None:
+        if len(self.prevDay) <= 4:
+            self.prevDay.append(market.stocks["HydroCorp"])
+            self.prevDay.append(market.stocks["BrightFuture"])
+        else:
+            self.prevDay[0] = self.prevDay[2]
+            self.prevDay[1] = self.prevDay[3]
+            self.prevDay[2] = self.prevDay[4]
+            self.prevDay[3] = self.prevDay[5]
+            self.prevDay[4] = market.stocks["HydroCorp"]
+            self.prevDay[5] = market.stocks["BrightFuture"]
+
+    def growth(self):
+        if len(self.prevDay) == 6:
+            HCOne = abs(self.prevDay[2] - self.prevDay[0])
+            HCSec = abs(self.prevDay[4] - self.prevDay[2])
+            BFOne = abs(self.prevDay[3] - self.prevDay[1])
+            BFSec = abs(self.prevDay[5] - self.prevDay[3])
+            DDHC = abs(HCSec - HCOne) / HCOne
+            DDBF = abs(BFSec - BFOne) / HCOne
+            return [DDHC, DDBF]
+        return
+
+
 
 def update_portfolio(curMarket: Market, curPortfolio: Portfolio, context: Context) -> None:
     context.day = context.day + 1
     context.totalDay = context.totalDay + 1
+    context.dayAssign(curMarket)
     if context.totalDay not in context.noDay:
-        print(context.day)
         HC = 0
         BF = 0
-        Pass = False
-        if context.day == 1 or context.first == []:
-            context.first.append(curMarket.stocks["HydroCorp"])
-            context.first.append(curMarket.stocks["BrightFuture"])
-            Pass = True
-        print(context.first)
-        if context.day == 7 and Pass == True:
-            weeklyHC = context.weekCalc(context.first[0], curMarket.stocks["HydroCorp"])
-            weeklyBF = context.weekCalc(context.first[1], curMarket.stocks["BrightFuture"])
-            HC = context.weekByWeek(weeklyHC, "HC")
-            BF = context.weekByWeek(weeklyBF, "BF")
-            context.first = []
-            context.day = 0
-            print(HC)
-            print(BF)
+        volatile = context.growth()
+        if volatile is not None and volatile[0] > 0.5 and volatile[1] > 0.5:
+            pass
+        else:
+            if context.day == 1 or context.first == []:
+                context.first.append(curMarket.stocks["HydroCorp"])
+                context.first.append(curMarket.stocks["BrightFuture"])
+                context.hasVal = True
+            if context.day == 7 and context.hasVal is True:
+                weeklyHC = context.weekCalc(context.first[0], curMarket.stocks["HydroCorp"])
+                weeklyBF = context.weekCalc(context.first[1], curMarket.stocks["BrightFuture"])
+                HC = context.weekByWeek(weeklyHC, "HC")
+                BF = context.weekByWeek(weeklyBF, "BF")
+                context.first = []
+                context.day = 0
+                context.hasVal = False
+                print(HC)
+                print(BF)
+                if HC > BF:
+                    curPortfolio.buy("HydroCorp", 0, curMarket)
+                elif BF > HC:
+                    curPortfolio.buy("BrightFuture", 0, curMarket)
 
 
 if __name__ == '__main__':
