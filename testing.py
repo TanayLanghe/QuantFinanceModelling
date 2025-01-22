@@ -7,9 +7,9 @@ def main():
     for line in lines:
         lineNum = lineNum + 1
         values = line.split()
-        if lineNum % 7 == 0:
-            HC.append(values[7])
-            BP.append(values[8])
+        if lineNum >= 8:
+            HC.append(float(values[6]))
+            BP.append(float(values[7]))
     print(HC)
     print(BP)
 
