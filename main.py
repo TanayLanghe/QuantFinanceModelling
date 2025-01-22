@@ -13,13 +13,13 @@ def main():
     #     update_portfolio(market, portfolio, context)
     #     market.updateMarket()
     # print(portfolio.evaluate(market))
-    with open('data.txt', 'r') as file:
+    with open('acc_data.txt', 'r') as file:
         lines = file.readlines()
     for line in lines:
         values = line.strip().split()
         update(market, float(values[1]), float(values[2]))
-        update_portfolio(market, portfolio, context)
-
+        update_portfolio(market, portfolio, context)    # REMOVE THE EXPECTED VALUES
+        print(portfolio.shares)
 
 class Market:
     transaction_fee = 0.005
@@ -146,30 +146,29 @@ class Context:
     def __init__(self) -> None:
         self.first = []
         self.totalDay = 0
-        self.noDay = [1, 2, 3, 4, 5, 6, 7]
+        self.noDay = [0, 1, 2, 3, 4, 5, 6, 7]
         self.prevDay = []
         self.hasVal = False
+        self.confidence = [0, 0]
+        self.BFCALC = 0
+        self.HCCALC = 0
+        self.buy = False
 
     def weekByWeek(self, currWeek: float, company: str) -> float:
-        close = 10
+        close = 0
         if company == "HC":
             weekGrowth = Context.weekGrowthHC
         elif company == "BF":
             weekGrowth = Context.weekGrowthBF
         else:
             return 0
-        closest = 0
-        i = 0
-        while i < len(weekGrowth):
-            if abs(currWeek - weekGrowth[i]) < abs(currWeek - weekGrowth[close]):
-                closest = i
-            i = i + 1
-        if closest == len(weekGrowth) - 1:
-            return weekGrowth[closest]
-        return weekGrowth[closest + 1]
+        close = min(enumerate(weekGrowth), key=lambda x: abs(x[1] - currWeek))[0]
+        if close == len(weekGrowth) - 1:
+            return weekGrowth[close]
+        return weekGrowth[close + 1]
 
     def weekCalc(self, first: float, seventh: float) -> float:
-        return ((seventh - first)/first * 100)
+        return (seventh - first)/first * 100
 
     def dayAssign(self, market: Market) -> None:
         if len(self.prevDay) <= 4:
@@ -204,7 +203,7 @@ class Context:
 
 def update_portfolio(curMarket: Market, curPortfolio: Portfolio, context: Context) -> None:
     context.totalDay = context.totalDay + 1
-    # context.dayAssign(curMarket)
+    context.dayAssign(curMarket)
     context.first.append(curMarket.stocks["HydroCorp"])
     context.first.append(curMarket.stocks["BrightFuture"])
     if context.totalDay not in context.noDay:
@@ -214,9 +213,16 @@ def update_portfolio(curMarket: Market, curPortfolio: Portfolio, context: Contex
         # if volatile is not None and volatile[0] > 0.5 and volatile[1] > 0.5 and False == True:
         #     pass
         # else:
+        if context.buy is False:
+            HCshares = curPortfolio.cash * 0.7/((1 + curMarket.transaction_fee) * curMarket.stocks["HydroCorp"])
+            curPortfolio.buy("HydroCorp", HCshares, curMarket)
+            BFshares = curPortfolio.cash / ((1 + curMarket.transaction_fee) * curMarket.stocks["HydroCorp"])
+            curPortfolio.buy("BrightFuture", BFshares, curMarket)
+            context.buy = True
+            # print(curPortfolio.shares)
         if context.totalDay >= 6:
             context.hasVal = True
-        if context.hasVal is True:
+        elif context.hasVal is True:
             weeklyHC = context.weekCalc(context.first[0], curMarket.stocks["HydroCorp"])
             weeklyBF = context.weekCalc(context.first[1], curMarket.stocks["BrightFuture"])
             context.first.pop(0)
@@ -224,13 +230,41 @@ def update_portfolio(curMarket: Market, curPortfolio: Portfolio, context: Contex
             HC = context.weekByWeek(weeklyHC, "HC")
             BF = context.weekByWeek(weeklyBF, "BF")
             context.hasVal = False
-            print(HC)
-            print(BF)
-            # print("end")
-                # if HC > BF:
-                #     curPortfolio.buy("HydroCorp", 0, curMarket)
-                # elif BF > HC:
-                #     curPortfolio.buy("BrightFuture", 0, curMarket)
+            context.HCCALC = context.confidence[0]/context.totalDay
+            context.BFCALC = context.confidence[1] / context.totalDay
+            netPercentHC = curPortfolio.shares["HydroCorp"] * curMarket.stocks["HydroCorp"] / curPortfolio.evaluate(curMarket)
+            netPercentBF = curPortfolio.shares["BrightFuture"] * curMarket.stocks["BrightFuture"] / curPortfolio.evaluate(curMarket)
+            if HC > BF:
+                if netPercentHC < 0.50:
+                    missingPerc = 0.95 - netPercentHC
+                    neededMoney = curPortfolio.evaluate(curMarket) * missingPerc
+                    stockToSell = neededMoney / ((1 + curMarket.transaction_fee) * curMarket.stocks["BrightFuture"])
+                    if stockToSell > 0 and stockToSell <= curPortfolio.shares["BrightFuture"]:
+                        curPortfolio.sell("BrightFuture", stockToSell, curMarket)
+                        stockToBuy = curPortfolio.cash / (
+                                    (1 + curMarket.transaction_fee) * curMarket.stocks["HydroCorp"])
+                        curPortfolio.buy("HydroCorp", (stockToBuy - 1), curMarket)
+                    elif stockToSell > 0 and stockToSell > curPortfolio.shares["BrightFuture"]:
+                        curPortfolio.sell("BrightFuture", curPortfolio.shares["BrightFuture"], curMarket)
+                        stockToBuy = curPortfolio.cash / (
+                                    (1 + curMarket.transaction_fee) * curMarket.stocks["HydroCorp"])
+                        curPortfolio.buy("HydroCorp", (stockToBuy - 1), curMarket)
+            elif BF > HC:
+                if netPercentBF < 0.95:
+                    missingPerc = 0.95 - netPercentHC
+                    neededMoney = curPortfolio.evaluate(curMarket) * missingPerc
+                    stockToSell = neededMoney/((1 + curMarket.transaction_fee) * curMarket.stocks["HydroCorp"])
+                    if stockToSell > 0 and stockToSell <= curPortfolio.shares["HydroCorp"]:
+                        curPortfolio.sell("HydroCorp", stockToSell, curMarket)
+                        stockToBuy = curPortfolio.cash/((1 + curMarket.transaction_fee) * curMarket.stocks["BrightFuture"])
+                        curPortfolio.buy("BrightFuture", (stockToBuy - 1), curMarket)
+                    elif stockToSell > 0 and stockToSell > curPortfolio.shares["HydroCorp"]:
+                        curPortfolio.sell("HydroCorp", curPortfolio.shares["HydroCorp"], curMarket)
+                        stockToBuy = curPortfolio.cash / ((1 + curMarket.transaction_fee) * curMarket.stocks["BrightFuture"])
+                        curPortfolio.buy("BrightFuture", (stockToBuy - 1), curMarket)
+            if curPortfolio.evaluate(curMarket) < 50000:
+                curPortfolio.sell("HydroCorp", curPortfolio.shares["HydroCorp"], curMarket)
+                curPortfolio.sell("BrightFuture", curPortfolio.shares["BrightFuture"], curMarket)
 
 
 if __name__ == '__main__':
