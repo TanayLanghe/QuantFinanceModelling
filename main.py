@@ -8,11 +8,9 @@ def main():
     portfolio = Portfolio()
     context = Context()
 
-
     for i in range(7):
         update_portfolio(market, portfolio, context)
         market.updateMarket()
-    print(portfolio.evaluate(market))
     print(portfolio.evaluate(market))
 
 class Market:
@@ -135,9 +133,20 @@ def update_portfolio(curMarket: Market, curPortfolio: Portfolio, context: Contex
             context.buy = True
         if context.totalDay >= 6:
             context.hasVal = True
+        weeklyHC = context.weekCalc(context.first[0], curMarket.stocks["HydroCorp"])
+        weeklyBF = context.weekCalc(context.first[1], curMarket.stocks["BrightFuture"])
+        context.weekGrowthHC.append(weeklyHC)
+        context.weekGrowthBF.append(weeklyBF)
+        if weeklyBF > 0.25 or weeklyHC > 0.25:
+            grow = context.growth()
+            if grow[0] < 0 or grow[1] < 0:
+                context.noDay.append(context.totalDay + 1)
+                context.noDay.append(context.totalDay + 2)
+                context.noDay.append(context.totalDay + 3)
+                curPortfolio.sell("HydroCorp", curPortfolio.shares["HydroCorp"], curMarket)
+                curPortfolio.sell("BrightFuture", curPortfolio.shares["BrightFuture"], curMarket)
+
         if context.hasVal is True:
-            weeklyHC = context.weekCalc(context.first[0], curMarket.stocks["HydroCorp"])
-            weeklyBF = context.weekCalc(context.first[1], curMarket.stocks["BrightFuture"])
             context.first.pop(0)
             context.first.pop(0)
             HC = context.weekByWeek(weeklyHC, "HC")
