@@ -8,8 +8,8 @@ def main():
         lineNum = lineNum + 1
         values = line.split()
         if lineNum % 7 == 0:
-            HC.append(values[6])
-            BP.append(values[7])
+            HC.append(values[7])
+            BP.append(values[8])
     print(HC)
     print(BP)
 
